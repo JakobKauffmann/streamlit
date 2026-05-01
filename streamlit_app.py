@@ -154,20 +154,6 @@ primary_model_name = st.sidebar.selectbox(
     index=list(models.keys()).index("Random Forest") if "Random Forest" in models else 0,
 )
 
-with st.sidebar.expander("Debug: data dir contents"):
-    if DATA_DIR.exists():
-        entries = sorted(DATA_DIR.iterdir())
-        if not entries:
-            st.text(f"{DATA_DIR} is empty")
-        for p in entries:
-            try:
-                size = p.stat().st_size
-                st.text(f"{p.name}  {size:>12,} bytes")
-            except OSError:
-                st.text(f"{p.name}  (stat failed)")
-    else:
-        st.text(f"{DATA_DIR} does not exist")
-
 # Build the flow-source options dynamically: the CICIoMT2024 cross-dataset
 # bundle only appears if scripts/prep_iomt_bundle.py has been run AND the
 # file is large enough to be the actual content (not a stranded LFS pointer,
@@ -191,11 +177,6 @@ flow_source_options = [SOURCE_DEMO]
 if iomt_available:
     flow_source_options.append(SOURCE_IOMT)
 flow_source_options.append(SOURCE_UPLOAD)
-
-st.sidebar.caption(
-    f"IoMT bundle detected: {'yes' if iomt_available else 'no'} "
-    f"({iomt_size:,} bytes)"
-)
 
 source_choice = st.sidebar.radio("Flow source", flow_source_options)
 flow_source_note: str | None = None
