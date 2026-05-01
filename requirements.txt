@@ -1,0 +1,9 @@
+streamlit>=1.30
+scikit-learn>=1.3
+xgboost>=2.0
+tensorflow>=2.15; platform_system == "Darwin"
+tensorflow-cpu>=2.15; platform_system != "Darwin"
+pandas>=2.0
+numpy>=1.24
+joblib>=1.3
+pyarrow>=14.0

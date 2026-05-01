@@ -1,0 +1,34 @@
+{
+  "models": [
+    {
+      "name": "Decision Tree",
+      "file": "decision_tree_tuned.joblib",
+      "type": "sklearn",
+      "needs_scaling": false
+    },
+    {
+      "name": "KNN",
+      "file": "knn_tuned.joblib",
+      "type": "sklearn",
+      "needs_scaling": false
+    },
+    {
+      "name": "Random Forest",
+      "file": "random_forest_tuned.joblib",
+      "type": "sklearn",
+      "needs_scaling": false
+    },
+    {
+      "name": "XGBoost",
+      "file": "xgboost_tuned.joblib",
+      "type": "sklearn",
+      "needs_scaling": false
+    },
+    {
+      "name": "Compact MLP",
+      "file": "compact_mlp_tuned.keras",
+      "type": "keras",
+      "needs_scaling": true
+    }
+  ]
+}
