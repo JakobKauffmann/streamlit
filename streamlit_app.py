@@ -92,6 +92,17 @@ def load_demo_holdout() -> pd.DataFrame | None:
     return None
 
 
+@st.cache_data
+def load_iomt_sample() -> pd.DataFrame | None:
+    parquet_path = DATA_DIR / "ciciomt2024_sample.parquet"
+    csv_path = DATA_DIR / "ciciomt2024_sample.csv"
+    if parquet_path.exists():
+        return pd.read_parquet(parquet_path)
+    if csv_path.exists():
+        return pd.read_csv(csv_path)
+    return None
+
+
 def predict_one_flow(features_row: np.ndarray, model_entry: dict, scaler) -> tuple[np.ndarray, float]:
     feats = features_row.reshape(1, -1)
     if model_entry["needs_scaling"]:
@@ -143,14 +154,73 @@ primary_model_name = st.sidebar.selectbox(
     index=list(models.keys()).index("Random Forest") if "Random Forest" in models else 0,
 )
 
-source_choice = st.sidebar.radio("Flow source", ["Bundled demo holdout", "Upload CSV"])
-if source_choice == "Bundled demo holdout":
+with st.sidebar.expander("Debug: data dir contents"):
+    if DATA_DIR.exists():
+        entries = sorted(DATA_DIR.iterdir())
+        if not entries:
+            st.text(f"{DATA_DIR} is empty")
+        for p in entries:
+            try:
+                size = p.stat().st_size
+                st.text(f"{p.name}  {size:>12,} bytes")
+            except OSError:
+                st.text(f"{p.name}  (stat failed)")
+    else:
+        st.text(f"{DATA_DIR} does not exist")
+
+# Build the flow-source options dynamically: the CICIoMT2024 cross-dataset
+# bundle only appears if scripts/prep_iomt_bundle.py has been run AND the
+# file is large enough to be the actual content (not a stranded LFS pointer,
+# which would only be ~130 bytes).
+SOURCE_DEMO = "CICIoT2023 demo holdout (in-distribution)"
+SOURCE_IOMT = "CICIoMT2024 sample (cross-dataset, out-of-distribution)"
+SOURCE_UPLOAD = "Upload CSV"
+
+iomt_parquet = DATA_DIR / "ciciomt2024_sample.parquet"
+iomt_csv = DATA_DIR / "ciciomt2024_sample.csv"
+iomt_size = 0
+if iomt_parquet.exists():
+    iomt_size = iomt_parquet.stat().st_size
+elif iomt_csv.exists():
+    iomt_size = iomt_csv.stat().st_size
+
+# LFS pointer files are ~130 bytes; real parquet/CSV samples are ≥100 KB.
+iomt_available = iomt_size > 50_000
+
+flow_source_options = [SOURCE_DEMO]
+if iomt_available:
+    flow_source_options.append(SOURCE_IOMT)
+flow_source_options.append(SOURCE_UPLOAD)
+
+st.sidebar.caption(
+    f"IoMT bundle detected: {'yes' if iomt_available else 'no'} "
+    f"({iomt_size:,} bytes)"
+)
+
+source_choice = st.sidebar.radio("Flow source", flow_source_options)
+flow_source_note: str | None = None
+
+if source_choice == SOURCE_DEMO:
     flows_df = load_demo_holdout()
     if flows_df is None:
         st.sidebar.error(
             f"No demo holdout found. Put `demo_holdout.parquet` (or .csv) in `{DATA_DIR}/`."
         )
         st.stop()
+elif source_choice == SOURCE_IOMT:
+    flows_df = load_iomt_sample()
+    if flows_df is None:
+        st.sidebar.error(
+            f"No CICIoMT2024 bundle found. Run `python scripts/prep_iomt_bundle.py` "
+            f"to generate `{DATA_DIR.name}/ciciomt2024_sample.parquet`."
+        )
+        st.stop()
+    flow_source_note = (
+        "Models were trained on CICIoT2023. Predicted categories are compared "
+        "against the CICIoMT2024 labels mapped into the CICIoT2023 8-category "
+        "space (e.g. MQTT_DDoS_* → DDoS). Lower accuracy here is expected and "
+        "is the headline cross-dataset generalization number for the report."
+    )
 else:
     upload = st.sidebar.file_uploader("Upload a CSV with the same feature columns", type=["csv"])
     if upload is None:
@@ -178,6 +248,8 @@ st.caption(
     f"Spotlight: **{primary_model_name}**. "
     f"Flow source: **{source_choice}** ({len(flows_df):,} rows available)."
 )
+if flow_source_note:
+    st.info(flow_source_note)
 
 if start_replay:
     sample = flows_df.sample(n=min(max_flows, len(flows_df)), random_state=42).reset_index(drop=True)
